@@ -20,10 +20,10 @@ comparable to a full 160-direction acquisition.
 - MD error map is almost entirely dark — near perfect reconstruction
 - Clean loss curve showing smooth convergence with no overfitting
 
-### FA & MD Map Comparison
+### FA & MD Map Comparison for updated version
 ![FA MD Comparison](dMRI-accelerated/results/fa_md_comparison_updated_version.png)
 
-### Training Curve
+### Training Curve for updated verison
 ![Loss Curve](dMRI-accelerated/results/loss_curve_updated_version.png)
 
 ---
