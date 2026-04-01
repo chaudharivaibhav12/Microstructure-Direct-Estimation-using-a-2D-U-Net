@@ -8,11 +8,17 @@ comparable to a full 160-direction acquisition.
 
 ## Results
 
-| Metric | Value |
-|--------|-------|
-| FA MAE | 0.0354 |
-| MD MAE | 0.0078 |
+| Metric | Initial Version Value | Final Version Value | 
+|--------|-----------------------|---------------------|
+| FA MAE | 0.0534 |0.0354 |
+| MD MAE | 0.0251 |0.0078 |
+| Background | Yellow Noise | Clean Black |
+| Loss Curve | Slightly Nosiy | Smooth and stable |
 | Acquisition Speedup | ~13x (160 → 12 directions) |
+
+- FA map is nearly indistinguishable from ground truth
+- MD error map is almost entirely dark — near perfect reconstruction
+- Clean loss curve showing smooth convergence with no overfitting
 
 ### FA & MD Map Comparison
 ![FA MD Comparison](dMRI-accelerated/results/fa_md_comparison_updated_version.png)
