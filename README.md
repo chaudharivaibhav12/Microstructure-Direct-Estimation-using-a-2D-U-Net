@@ -151,6 +151,7 @@ Built as a demo project for research in diffusion MRI acceleration
 New York University — Courant Institute School of Mathematics, Computing, and Data Science
 
 chaudharivaibhav12@gmail.com | vc2836@nyu.edu
+
 [LinkedIn](https://www.linkedin.com/in/chaudharivaibhav)
 [GitHub](https://github.com/chaudharivaibhav12)
 
