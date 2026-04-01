@@ -15,10 +15,10 @@ comparable to a full 160-direction acquisition.
 | Acquisition Speedup | ~13x (160 → 12 directions) |
 
 ### FA & MD Map Comparison
-![FA MD Comparison](results/fa_md_comparison_updated_version.png)
+![FA MD Comparison](dMRI-accelerated/results/fa_md_comparison_updated_version.png)
 
 ### Training Curve
-![Loss Curve](results/loss_curve_updated_version.png)
+![Loss Curve](dMRI-accelerated/results/loss_curve_updated_version.png)
 
 ---
 
