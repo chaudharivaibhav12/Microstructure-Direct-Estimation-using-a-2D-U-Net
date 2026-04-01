@@ -48,6 +48,9 @@ MD_true = np.concatenate(MD_true_all, axis=0)
 
 # ── Compute metrics ────────────────────────────────────────────────────────
 mask_flat = mask.transpose(2, 0, 1).astype(bool)  # (76, 81, 106)
+# Zero out background for clean visualization
+FA_pred *= mask_flat
+MD_pred *= mask_flat
 
 fa_mse  = np.mean((FA_pred[mask_flat] - FA_true[mask_flat])**2)
 md_mse  = np.mean((MD_pred[mask_flat] - MD_true[mask_flat])**2)

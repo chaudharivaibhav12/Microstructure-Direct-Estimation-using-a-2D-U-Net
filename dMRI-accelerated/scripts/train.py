@@ -9,10 +9,10 @@ from unet import UNet
 from dataset import dMRIDataset
 
 # ── Config ─────────────────────────────────────────────────────────────────
-EPOCHS      = 50
-BATCH_SIZE  = 4
-LR          = 1e-3
-DEVICE      = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+EPOCHS     = 100
+BATCH_SIZE = 4
+LR         = 1e-3
+DEVICE     = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 print(f"Training on: {DEVICE}")
 
@@ -24,28 +24,42 @@ MD          = np.load("data/processed/MD_ground_truth.npy")
 mask        = np.load("data/processed/mask.npy")
 
 # ── Dataset & splits ───────────────────────────────────────────────────────
-dataset = dMRIDataset(sparse_data, FA, MD, mask)
+generator = torch.Generator().manual_seed(42)
+full_ds   = dMRIDataset(sparse_data, FA, MD, mask, augment=False)
 
-train_size = int(0.8 * len(dataset))  # 60 slices for training
-val_size   = len(dataset) - train_size  # 16 slices for validation
-
-train_ds, val_ds = random_split(
-    dataset, [train_size, val_size],
-    generator=torch.Generator().manual_seed(42)
+train_size = int(0.8 * len(full_ds))
+val_size   = len(full_ds) - train_size
+train_idx, val_idx = random_split(
+    range(len(full_ds)), [train_size, val_size], generator=generator
 )
+
+# Augment only training set
+train_ds = dMRIDataset(sparse_data, FA, MD, mask, augment=True)
+val_ds   = dMRIDataset(sparse_data, FA, MD, mask, augment=False)
+
+from torch.utils.data import Subset
+train_ds = Subset(train_ds, train_idx.indices)
+val_ds   = Subset(val_ds,   val_idx.indices)
 
 train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True)
 val_loader   = DataLoader(val_ds,   batch_size=BATCH_SIZE, shuffle=False)
 
 print(f"Train slices: {train_size} | Val slices: {val_size}")
 
-# ── Model, optimizer, loss ─────────────────────────────────────────────────
+# ── Combined MSE + MAE loss with brain mask weighting ──────────────────────
+def masked_loss(pred, target, mask):
+    # Expand mask to match (B, 2, H, W)
+    m = mask.unsqueeze(1).expand_as(pred)
+    mse = ((pred - target) ** 2 * m).sum() / (m.sum() + 1e-8)
+    mae = (torch.abs(pred - target) * m).sum() / (m.sum() + 1e-8)
+    return 0.7 * mse + 0.3 * mae
+
+# ── Model ──────────────────────────────────────────────────────────────────
 model     = UNet(in_channels=22, out_channels=2).to(DEVICE)
 optimizer = torch.optim.Adam(model.parameters(), lr=LR)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-    optimizer, patience=5, factor=0.5
+    optimizer, patience=7, factor=0.5
 )
-criterion = nn.MSELoss()
 
 # ── Training loop ──────────────────────────────────────────────────────────
 os.makedirs("models", exist_ok=True)
@@ -58,16 +72,15 @@ for epoch in range(1, EPOCHS + 1):
     model.train()
     train_loss = 0.0
     for x, target, mask_batch in train_loader:
-        x      = x.to(DEVICE)
-        target = target.to(DEVICE)
-
+        x, target, mask_batch = (x.to(DEVICE),
+                                  target.to(DEVICE),
+                                  mask_batch.to(DEVICE))
         optimizer.zero_grad()
         pred = model(x)
-        loss = criterion(pred, target)
+        loss = masked_loss(pred, target, mask_batch)
         loss.backward()
         optimizer.step()
         train_loss += loss.item()
-
     train_loss /= len(train_loader)
 
     # — Validate —
@@ -75,18 +88,17 @@ for epoch in range(1, EPOCHS + 1):
     val_loss = 0.0
     with torch.no_grad():
         for x, target, mask_batch in val_loader:
-            x      = x.to(DEVICE)
-            target = target.to(DEVICE)
-            pred   = model(x)
-            val_loss += criterion(pred, target).item()
-
+            x, target, mask_batch = (x.to(DEVICE),
+                                      target.to(DEVICE),
+                                      mask_batch.to(DEVICE))
+            pred      = model(x)
+            val_loss += masked_loss(pred, target, mask_batch).item()
     val_loss /= len(val_loader)
-    scheduler.step(val_loss)
 
+    scheduler.step(val_loss)
     history["train"].append(train_loss)
     history["val"].append(val_loss)
 
-    # — Save best model —
     if val_loss < best_val_loss:
         best_val_loss = val_loss
         torch.save(model.state_dict(), "models/best_unet.pth")
@@ -95,10 +107,8 @@ for epoch in range(1, EPOCHS + 1):
         saved = ""
 
     print(f"Epoch {epoch:3d}/{EPOCHS} | "
-          f"Train Loss: {train_loss:.6f} | "
-          f"Val Loss: {val_loss:.6f}{saved}")
+          f"Train: {train_loss:.6f} | "
+          f"Val: {val_loss:.6f}{saved}")
 
-# ── Save training history ──────────────────────────────────────────────────
 np.save("models/history.npy", history)
-print(f"\n✅ Training complete! Best val loss: {best_val_loss:.6f}")
-print("Model saved to models/best_unet.pth")
+print(f"\n✅ Done! Best val loss: {best_val_loss:.6f}")
